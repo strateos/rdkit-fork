@@ -219,6 +219,25 @@ RWMol *chargeParent(const RWMol &mol, const CleanupParameters &params,
   return omol;
 }
 
+namespace {
+  Uncharger& getUncharger(const bool doCanonical) {
+    if (doCanonical) {
+      static Uncharger uncharger(true);
+      return uncharger;
+    } else {
+      static Uncharger uncharger(false);
+      return uncharger;
+    }
+  }
+}
+
+RWMol *uncharge(const RWMol &mol, const CleanupParameters &params) {
+  ROMol nm(mol);
+  ROMOL_SPTR uncharged(getUncharger(params.doCanonical).uncharge(nm));
+  RWMol *omol = cleanup(static_cast<RWMol *>(uncharged.get()), params);
+  return omol;
+}
+
 RWMol *superParent(const RWMol &mol, const CleanupParameters &params,
                    bool skip_standardize) {
   std::unique_ptr<RWMol> res;
