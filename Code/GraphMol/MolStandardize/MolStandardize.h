@@ -95,7 +95,7 @@ RDKIT_MOLSTANDARDIZE_EXPORT void updateCleanupParamsFromJSON(
 /// namely: RemoveHs, RDKit SanitizeMol, MetalDisconnector, Normalizer,
 /// Reionizer, RDKit AssignStereochemistry.
 RDKIT_MOLSTANDARDIZE_EXPORT RWMol *cleanup(
-    const RWMol *mol,
+    const ROMol *mol,
     const CleanupParameters &params = defaultCleanupParameters);
 //! \overload
 inline RWMol *cleanup(const RWMol &mol, const CleanupParameters &params =
@@ -119,8 +119,8 @@ RDKIT_MOLSTANDARDIZE_EXPORT RWMol *removeFragments(
     const CleanupParameters &params = defaultCleanupParameters);
 
 //! Works the same as TautomerEnumerator().canonicalize(mol)
-RDKIT_MOLSTANDARDIZE_EXPORT RWMol *canonicalTautomer(
-    const RWMol *mol,
+RDKIT_MOLSTANDARDIZE_EXPORT ROMOL_SPTR canonicalTautomer(
+    const ROMol& mol,
     const CleanupParameters &params = defaultCleanupParameters);
 
 //! Returns the tautomer parent of a given molecule. The fragment parent is the
@@ -157,8 +157,8 @@ RDKIT_MOLSTANDARDIZE_EXPORT RWMol *chargeParent(
     bool skip_standardize = false);
 
 //! Works the same as Uncharger(doCanonical).uncharge(mol)
-RDKIT_MOLSTANDARDIZE_EXPORT RWMol *uncharge(
-    const RWMol &mol,
+RDKIT_MOLSTANDARDIZE_EXPORT ROMOL_SPTR uncharge(
+    const ROMol &mol,
     const CleanupParameters &params = defaultCleanupParameters);
 
 //! Returns the super parent. The super parent is the fragment, charge, isotope,

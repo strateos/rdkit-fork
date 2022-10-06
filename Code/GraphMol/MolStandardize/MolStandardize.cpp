@@ -121,7 +121,7 @@ void updateCleanupParamsFromJSON(CleanupParameters &params,
   }
 }
 
-RWMol *cleanup(const RWMol *mol, const CleanupParameters &params) {
+RWMol *cleanup(const ROMol *mol, const CleanupParameters &params) {
   RWMol m(*mol);
   MolOps::removeHs(m);
 
@@ -151,7 +151,7 @@ RWMol *tautomerParent(const RWMol &mol, const CleanupParameters &params,
     cleaned = &mol;
   }
 
-  std::unique_ptr<RWMol> ct{canonicalTautomer(cleaned, params)};
+  ROMOL_SPTR ct{canonicalTautomer(*cleaned, params)};
 
   return cleanup(ct.get(), params);
 }
@@ -231,10 +231,9 @@ namespace {
   }
 }
 
-RWMol *uncharge(const RWMol &mol, const CleanupParameters &params) {
-  ROMol nm(mol);
-  ROMOL_SPTR uncharged(getUncharger(params.doCanonical).uncharge(nm));
-  RWMol *omol = cleanup(static_cast<RWMol *>(uncharged.get()), params);
+ROMOL_SPTR uncharge(const ROMol &mol, const CleanupParameters &params) {
+  ROMOL_SPTR uncharged(getUncharger(params.doCanonical).uncharge(mol));
+  ROMOL_SPTR omol(cleanup(static_cast<RWMol *>(uncharged.get()), params));
   return omol;
 }
 
@@ -272,10 +271,10 @@ RWMol *removeFragments(const RWMol *mol, const CleanupParameters &params) {
   return static_cast<RWMol *>(remover->remove(*mol));
 }
 
-RWMol *canonicalTautomer(const RWMol *mol, const CleanupParameters &params) {
-  PRECONDITION(mol, "bad molecule");
+ROMOL_SPTR canonicalTautomer(const ROMol& mol, const CleanupParameters &params) {
+  PRECONDITION(&mol, "bad molecule");
   std::unique_ptr<TautomerEnumerator> te{tautomerEnumeratorFromParams(params)};
-  return static_cast<RWMol *>(te->canonicalize(*mol));
+  return ROMOL_SPTR(te->canonicalize(mol));
 }
 
 std::string standardizeSmiles(const std::string &smiles) {
