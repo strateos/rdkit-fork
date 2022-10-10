@@ -1,0 +1,38 @@
+plugins {
+    id "com.jfrog.artifactory" version "4.29.1"
+    id "maven-publish"
+}
+
+
+group 'org.RDKit'
+version '2022.03.5-SNAPSHOT'
+description = 'A Java wrapper for RDKit'
+
+repositories {
+    mavenCentral()
+}
+
+artifactory {
+    contextUrl = "https://artifactory.strateos.com/artifactory"
+    publish {
+        repository {
+            repoKey = System.getenv("REPOSITORY_KEY")
+            username = System.getenv("ARTIFACTORY_USERNAME")
+            password = System.getenv("ARTIFACTORY_PASSWORD")
+        }
+        defaults {
+            publications ('mavenJava')
+            publishBuildInfo = false
+        }
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact file("../Code/JavaWrappers/gmwrapper/org.RDKit.jar")
+            artifactId 'rdkit-wrapper'
+        }
+    }
+}
+

@@ -1,0 +1,107 @@
+#!/usr/bin/env make -f
+# -*- makefile -*-
+
+.DEFAULT_GOAL = rdkit
+
+BOOST_VERSION ?= 1.80.0
+GRADLE_VERSION ?= 7.5.1
+INCHI_DOWNLOAD_URL ?= https://github.com/metamolecular/inchi/archive/0fc7adc58d4ff1c481b26e0de53cc8a404c3d381.zip
+JAVA_VERSION ?= 17
+
+SHELL:=/bin/bash
+SOURCEROOT := $(shell git rev-parse --show-toplevel)
+
+BUILDDIR ?= $(SOURCEROOT).build
+CMAKE3 ?= $(shell command -v cmake)
+JAVA_HOME = /usr/lib/jvm/java-$(JAVA_VERSION)-openjdk-amd64
+RDKIT_INSTALL_PREFIX ?= $(BUILDDIR)
+
+
+BOOST_ARCHIVE := boost_$(subst .,_,$(BOOST_VERSION)).tar.bz2
+
+.SECONDARY: $(BUILDDIR)/boost/$(BOOST_ARCHIVE)
+$(BUILDDIR)/boost/$(BOOST_ARCHIVE):
+	@mkdir -p $(@D)
+	curl -L -o $@ \
+	     https://boostorg.jfrog.io/artifactory/main/release/$(BOOST_VERSION)/source/$(BOOST_ARCHIVE)
+
+$(BUILDDIR)/boost/bootstrap.sh: $(BUILDDIR)/boost/$(BOOST_ARCHIVE)
+	tar -xf $< --strip 1 -C $(@D)
+
+$(BUILDDIR)/boost/b2 $(BUILDDIR)/boost/project-config.jam: $(BUILDDIR)/boost/bootstrap.sh
+	pushd $(@D) && \
+	$(SHELL) bootstrap.sh \
+	  --prefix="$(RDKIT_INSTALL_PREFIX)" \
+	  --with-libraries=system \
+	  --with-libraries=thread \
+	  --with-libraries=iostreams \
+	  --with-libraries=regex \
+	  --with-libraries=serialization && \
+	popd
+
+.PHONY: boost
+boost: $(BUILDDIR)/boost/b2
+	pushd $(BUILDDIR)/boost && \
+	  ./b2  cflags=-fPIC \
+	        cxxflags=-fPIC \
+	        link=static \
+	        --prefix="$(RDKIT_INSTALL_PREFIX)" \
+	        -j $(shell nproc) \
+	        install && \
+	popd
+
+.SECONDARY: $(BUILDDIR)/gradle/gradle-$(GRADLE_VERSION).zip
+$(BUILDDIR)/gradle-$(GRADLE_VERSION).zip:
+	@mkdir -p $(@D)
+	curl -L -o $@ https://downloads.gradle-dn.com/distributions/gradle-$(GRADLE_VERSION)-bin.zip
+
+$(BUILDDIR)/gradle/bin/gradle: $(BUILDDIR)/gradle-$(GRADLE_VERSION).zip
+	rm -rf $(BUILDDIR)/gradle-$(GRADLE_VERSION)
+	unzip -o $< -d "$(BUILDDIR)"
+	ln -sf -T "$(BUILDDIR)/gradle-$(GRADLE_VERSION)" "$(BUILDDIR)/gradle"
+
+gradle-setup: $(BUILDDIR)/gradle/bin/gradle
+
+.SECONDARY: $(BUILDDIR)/inchi/INCHI-1-SRC.zip
+$(BUILDDIR)/inchi/INCHI-1-SRC.zip:
+	@mkdir -p $(@D)
+	curl -L -o $@ $(INCHI_DOWNLOAD_URL)
+
+$(SOURCEROOT)/External/INCHI-API/INCHI-1-SRC.zip: $(BUILDDIR)/inchi/INCHI-1-SRC.zip
+	rm -rf $(dir $<)/INCHI-1-SRC $(dir $<)/inchi-* 
+	unzip $< -d "$(BUILDDIR)/inchi"
+	pushd "$(dir $<)" && \
+	  mv inchi-* INCHI-1-SRC && \
+	  zip -r $@ INCHI-1-SRC && \
+	popd 
+
+
+.PHONY: inchi
+inchi: $(SOURCEROOT)/External/INCHI-API/INCHI-1-SRC.zip
+
+$(BUILDDIR)/rdkit/Makefile: $(SOURCEROOT)/CMakeLists.txt inchi
+	JAVA_HOME="$(JAVA_HOME)" \
+	$(CMAKE3) -DBOOST_ROOT="$(RDKIT_INSTALL_PREFIX)" \
+	    -DBoost_NO_SYSTEM_PATHS=ON \
+	    -DBoost_USE_STATIC_LIBS=ON \
+	    -DCMAKE_INSTALL_PREFIX:PATH="$(RDKIT_INSTALL_PREFIX)" \
+	    -DRDK_BUILD_AVALON_SUPPORT=OFF \
+	    -DRDK_BUILD_INCHI_SUPPORT=ON \
+	    -DRDK_BUILD_PYTHON_WRAPPERS=OFF \
+	    -DRDK_BUILD_SWIG_WRAPPERS=ON \
+	    -DRDK_BUILD_SWIG_JAVA_WRAPPER=ON \
+	    -DINCHI_URL="" \
+	    -DINCHI_MD5SUM="" \
+	    -S $(dir $<) \
+	    -B $(dir $@) \
+	    -Wno-dev
+
+rdkit: $(BUILDDIR)/rdkit/Makefile
+	$(CMAKE3) --build "$(dir $<)" -j $(shell nproc)
+	$(CMAKE3) --install "$(dir $<)"
+	jar -uf "$(SOURCEROOT)/Code/JavaWrappers/gmwrapper/org.RDKit.jar" \
+	    -C "$(SOURCEROOT)/Code/JavaWrappers/gmwrapper" libGraphMolWrap.so
+
+
+clean-installed:
+	xargs rm < $(BUILDDIR)/build/install_manifest.txt
