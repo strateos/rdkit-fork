@@ -39,20 +39,20 @@ else(EXISTS ${CUSTOM_INCHI_PATH}/src/INCHI_BASE/src/ichican2.c)
   else (INCHI_FOUND)
     # system InChI is missing, download it
     if(NOT DEFINED INCHI_URL)
-      set(INCHI_URL "https://www.inchi-trust.org/download/106/INCHI-1-SRC.zip")
+      set(INCHI_URL "https://github.com/metamolecular/inchi/archive/refs/heads/master.zip")
     endif()
     if(NOT DEFINED INCHI_MD5SUM)
-      set(INCHI_MD5SUM "f2efa0c58cef32915686c04d7055b4e9")
+      set(INCHI_MD5SUM "e4fe471949694a0aca3fe2db88d8e258")
     endif()
     if(NOT DEFINED INCHI_BASE)
       string(REGEX REPLACE "^.*/" "" INCHI_BASE "${INCHI_URL}")
     endif()
     downloadAndCheckMD5(${INCHI_URL} "${CUSTOM_INCHI_PATH}/${INCHI_BASE}" ${INCHI_MD5SUM})
     execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf
-      ${CUSTOM_INCHI_PATH}/INCHI-1-SRC.zip
+      ${CUSTOM_INCHI_PATH}/master.zip
       WORKING_DIRECTORY ${CUSTOM_INCHI_PATH})
     execute_process(COMMAND "${CMAKE_COMMAND}" -E copy_directory
-        "${CUSTOM_INCHI_PATH}/INCHI-1-SRC" "${CUSTOM_INCHI_PATH}/src")
+        "${CUSTOM_INCHI_PATH}/inchi-master" "${CUSTOM_INCHI_PATH}/src")
   endif(INCHI_FOUND)
 endif(EXISTS ${CUSTOM_INCHI_PATH}/src/INCHI_BASE/src/ichican2.c)
 if(EXISTS ${CUSTOM_INCHI_PATH}/src/INCHI_BASE/src/ichican2.c)
