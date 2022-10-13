@@ -764,7 +764,7 @@ TEST_CASE("provide tautomer parameters as JSON") {
     CHECK(params.tautomerTransformData.size() == 2);
     auto m = "CCC=O"_smiles;
     REQUIRE(m);
-    std::unique_ptr<RWMol> nm{MolStandardize::canonicalTautomer(m.get())};
+    auto nm = MolStandardize::canonicalTautomer(*m);
     CHECK(MolToSmiles(*nm) == "CCC=O");
   }
 }
@@ -863,7 +863,7 @@ TEST_CASE("Github #5008: bad tautomers for phosphorous compounds") {
   SECTION("Canonical version") {
     auto m = "CP(O)C"_smiles;
     REQUIRE(m);
-    std::unique_ptr<RWMol> ct(MolStandardize::canonicalTautomer(m.get()));
+    auto ct = MolStandardize::canonicalTautomer(*m);
     REQUIRE(ct);
     CHECK(MolToSmiles(*ct) == "C[PH](C)=O");
   }
@@ -954,7 +954,7 @@ TEST_CASE("Github 5318: standardizing unsanitized molecules should work") {
     CHECK(MolToSmiles(*res) == "CS(=O)(=O)C([O-])C(=O)O");
   }
   SECTION("tautomer") {
-    std::unique_ptr<ROMol> res{MolStandardize::canonicalTautomer(m2.get())};
+    auto res = MolStandardize::canonicalTautomer(*m2);
     REQUIRE(res);
     CHECK(MolToSmiles(*res) == "Cc1cc[nH]n1.Cl");
   }

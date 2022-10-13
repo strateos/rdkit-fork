@@ -160,7 +160,7 @@ rdkit_test(molBundleTest testMolBundle.cpp
 
 rdkit_test(testSGroup testSGroup.cpp LINK_LIBRARIES FileParsers GraphMol)
 
-rdkit_test(test-valgrind test-valgrind.cpp LINK_LIBRARIES SmilesParse GraphMol )
+rdkit_test(test-valgrind test-valgrind.cpp LINK_LIBRARIES SmilesParse GraphMol MolStandardize)
 
 rdkit_catch_test(graphmolTestsCatch catch_graphmol.cpp 
            LINK_LIBRARIES SubstructMatch FileParsers SmilesParse GraphMol )
