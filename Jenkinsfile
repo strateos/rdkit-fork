@@ -16,7 +16,7 @@ pipeline {
 
         stage("Setup packages") {
             steps {
-                sh './Scripts/setup.sh'
+                sh './Scripts/setup.sh && make -f Scripts/Makefile.strateos gradle-setup'
             }
         }
 
@@ -38,6 +38,7 @@ pipeline {
                 REPOSITORY_KEY = "rdkit-java-wrapper"
                 ARTIFACTORY_USERNAME= "jenkins_rdkit_publish"
                 ARTIFACTORY_PASSWORD = credentials('buildsecret.artifactory_rdkit_publish_token')
+                PATH = "${env.BUILDDIR}/gradle/bin:${env.PATH}"
             }
             steps {
                 sh 'gradle -b Scripts/build.gradle artifactoryPublish'
