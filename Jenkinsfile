@@ -35,9 +35,9 @@ pipeline {
         stage('Publish Artifacts to artifactory') {
             //when { buildingTag() }
             environment {
-                REPOSITORY_KEY = "rdkit_java_wrapper"
-                ARTIFACTORY_USERNAME= "jenkins_maven_publish"
-                ARTIFACTORY_PASSWORD = credentials('buildsecret.artifactory_maven_publish_token')
+                REPOSITORY_KEY = "rdkit-java-wrapper"
+                ARTIFACTORY_USERNAME= "jenkins_rdkit_publish"
+                ARTIFACTORY_PASSWORD = credentials('buildsecret.artifactory_rdkit_publish_token')
             }
             steps {
                 sh 'gradle -b Scripts/build.gradle artifactoryPublish'
