@@ -275,6 +275,11 @@ RWMol *canonicalTautomer(const RWMol *mol, const CleanupParameters &params) {
   return static_cast<RWMol *>(te->canonicalize(*mol));
 }
 
+ROMOL_SPTR canonicalTautomerSafe(const ROMol& mol, const CleanupParameters &params) {
+  std::unique_ptr<TautomerEnumerator> te{tautomerEnumeratorFromParams(params)};
+  return ROMOL_SPTR(te->canonicalize(mol));
+}
+
 std::string standardizeSmiles(const std::string &smiles) {
   RWMOL_SPTR mol(SmilesToMol(smiles, 0, false));
   if (!mol) {

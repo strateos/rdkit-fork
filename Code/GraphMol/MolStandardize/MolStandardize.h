@@ -161,6 +161,11 @@ RDKIT_MOLSTANDARDIZE_EXPORT RWMol *chargeParent(
     const CleanupParameters &params = defaultCleanupParameters,
     bool skip_standardize = false);
 
+//! Works the same as Uncharger(doCanonical).uncharge(mol)
+RDKIT_MOLSTANDARDIZE_EXPORT void unchargeSafe(
+    ROMol &mol,
+    const CleanupParameters &params = defaultCleanupParameters);
+
 //! Returns the super parent. The super parent is the fragment, charge, isotope,
 //! stereo, and tautomer parent of the molecule.
 RDKIT_MOLSTANDARDIZE_EXPORT RWMol *superParent(
