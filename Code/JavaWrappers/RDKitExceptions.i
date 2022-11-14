@@ -190,7 +190,7 @@
   // Generic exception -- anything else
   } catch (std::exception &e) {
     jclass clazz = jenv->FindClass("org/RDKit/GenericRDKitException");
-    jenv->ThrowNew(clazz, "Unknown exception");
+    jenv->ThrowNew(clazz, e.what());
     return $null;
 
   }

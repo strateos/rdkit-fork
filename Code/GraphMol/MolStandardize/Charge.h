@@ -130,7 +130,7 @@ class RDKIT_MOLSTANDARDIZE_EXPORT Uncharger {
   Uncharger(const Uncharger &other);
   ~Uncharger();
 
-  ROMol *uncharge(const ROMol &mol);
+  ROMol *uncharge(ROMol &mol);
 
  private:
   bool df_canonicalOrdering = true;

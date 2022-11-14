@@ -339,9 +339,9 @@ bool neutralizeNegIfPossible(Atom *atom) {
   return true;
 }
 
-ROMol *Uncharger::uncharge(const ROMol &mol) {
+ROMol *Uncharger::uncharge(ROMol &mol) {
   BOOST_LOG(rdInfoLog) << "Running Uncharger\n";
-  auto *omol = new ROMol(mol);
+  auto *omol = &mol;
   if (omol->needsUpdatePropertyCache()) {
     omol->updatePropertyCache(false);
   }

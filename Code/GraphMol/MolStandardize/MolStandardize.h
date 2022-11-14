@@ -123,6 +123,11 @@ RDKIT_MOLSTANDARDIZE_EXPORT RWMol *canonicalTautomer(
     const RWMol *mol,
     const CleanupParameters &params = defaultCleanupParameters);
 
+//! Works the same as TautomerEnumerator().canonicalize(mol)
+RDKIT_MOLSTANDARDIZE_EXPORT ROMOL_SPTR canonicalTautomerSafe(
+    const ROMol& mol,
+    const CleanupParameters &params = defaultCleanupParameters);
+
 //! Returns the tautomer parent of a given molecule. The fragment parent is the
 /// standardized canonical tautomer of the molecule
 RDKIT_MOLSTANDARDIZE_EXPORT RWMol *tautomerParent(

@@ -219,6 +219,22 @@ RWMol *chargeParent(const RWMol &mol, const CleanupParameters &params,
   return omol;
 }
 
+namespace {
+  Uncharger& getUncharger(const bool doCanonical) {
+    if (doCanonical) {
+      static Uncharger uncharger(true);
+      return uncharger;
+    } else {
+      static Uncharger uncharger(false);
+      return uncharger;
+    }
+  }
+}
+
+void unchargeSafe(ROMol &mol, const CleanupParameters &params) {
+  getUncharger(params.doCanonical).uncharge(mol);
+}
+
 RWMol *superParent(const RWMol &mol, const CleanupParameters &params,
                    bool skip_standardize) {
   std::unique_ptr<RWMol> res;

@@ -19,10 +19,10 @@ set(CMAKE_MODULE_PATH
 
 add_library(rdkit_base INTERFACE)
 
-option(RDK_BUILD_SWIG_WRAPPERS "build the SWIG wrappers" OFF )
-option(RDK_BUILD_PYTHON_WRAPPERS "build the standard python wrappers" ON )
+option(RDK_BUILD_SWIG_WRAPPERS "build the SWIG wrappers" ON )
+option(RDK_BUILD_PYTHON_WRAPPERS "build the standard python wrappers" OFF )
 option(RDK_BUILD_COMPRESSED_SUPPLIERS "build in support for compressed MolSuppliers" OFF )
-option(RDK_BUILD_INCHI_SUPPORT "build the rdkit inchi wrapper" OFF )
+option(RDK_BUILD_INCHI_SUPPORT "build the rdkit inchi wrapper" ON )
 option(RDK_BUILD_AVALON_SUPPORT "install support for the avalon toolkit. Use the variable AVALONTOOLS_DIR to set the location of the source." OFF )
 option(RDK_BUILD_PGSQL "build the PostgreSQL cartridge" OFF )
 option(RDK_BUILD_RPATH_SUPPORT "build shared libraries using rpath" OFF)
@@ -127,10 +127,10 @@ set(RDK_PYTHON_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/rdkit")
 
 #-------
 # Config variables:
-set(RDKit_Year "2022")
-set(RDKit_Month "09")
+set(RDKit_Year "2023")
+set(RDKit_Month "03")
 set(RDKit_Revision "1")
-set(RDKit_RevisionModifier "")
+set(RDKit_RevisionModifier "pre")
 set(RDKit_ABI "1")
 
 # we need an integer version of the month later, so remove the zero padding
