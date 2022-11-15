@@ -7,6 +7,7 @@ BOOST_VERSION ?= 1.80.0
 GRADLE_VERSION ?= 7.5.1
 INCHI_DOWNLOAD_URL ?= https://github.com/metamolecular/inchi/archive/0fc7adc58d4ff1c481b26e0de53cc8a404c3d381.zip
 JAVA_VERSION ?= 17
+PG_VERSION_MAJOR ?= 12
 
 SHELL:=/bin/bash
 SOURCEROOT := $(shell git rev-parse --show-toplevel)
@@ -15,6 +16,7 @@ BUILDDIR ?= $(SOURCEROOT).build
 CMAKE3 ?= $(shell command -v cmake)
 JAVA_HOME = /usr/lib/jvm/java-$(JAVA_VERSION)-openjdk-amd64
 RDKIT_INSTALL_PREFIX ?= $(BUILDDIR)
+RDKIT_IMAGE_TAG ?= strateos/postgres-rdkit
 
 
 BOOST_ARCHIVE := boost_$(subst .,_,$(BOOST_VERSION)).tar.bz2
@@ -76,6 +78,8 @@ $(SOURCEROOT)/External/INCHI-API/INCHI-1-SRC.zip: $(BUILDDIR)/inchi/INCHI-1-SRC.
 	popd 
 
 
+# Add options -DINCHI_URL="" -DINCHI_MD5SUM="" to the cmake call for RDKit
+# if official inchi url is unavailable.
 .PHONY: inchi
 inchi: $(SOURCEROOT)/External/INCHI-API/INCHI-1-SRC.zip
 
@@ -84,24 +88,44 @@ $(BUILDDIR)/rdkit/Makefile: $(SOURCEROOT)/CMakeLists.txt inchi
 	$(CMAKE3) -DBOOST_ROOT="$(RDKIT_INSTALL_PREFIX)" \
 	    -DBoost_NO_SYSTEM_PATHS=ON \
 	    -DBoost_USE_STATIC_LIBS=ON \
-	    -DCMAKE_INSTALL_PREFIX:PATH="$(RDKIT_INSTALL_PREFIX)" \
+	    -DCMAKE_INSTALL_PREFIX="$(RDKIT_INSTALL_PREFIX)" \
 	    -DRDK_BUILD_AVALON_SUPPORT=OFF \
 	    -DRDK_BUILD_INCHI_SUPPORT=ON \
+	    -DRDK_BUILD_PGSQL=ON \
 	    -DRDK_BUILD_PYTHON_WRAPPERS=OFF \
 	    -DRDK_BUILD_SWIG_WRAPPERS=ON \
 	    -DRDK_BUILD_SWIG_JAVA_WRAPPER=ON \
-	    -DINCHI_URL="" \
-	    -DINCHI_MD5SUM="" \
+	    -DRDK_PGSQL_STATIC=ON \
+	    -DPostgreSQL_CONFIG=/usr/bin/pg_config \
+	    -DPostgreSQL_TYPE_INCLUDE_DIR=$(shell pg_config --includedir-server) \
 	    -S $(dir $<) \
 	    -B $(dir $@) \
 	    -Wno-dev
 
+.PHONY: rdkit
 rdkit: $(BUILDDIR)/rdkit/Makefile
 	$(CMAKE3) --build "$(dir $<)" -j $(shell nproc)
-	$(CMAKE3) --install "$(dir $<)"
+
+rdkit-java: rdkit
+	$(CMAKE3) --install "$(BUILDDIR)/rdkit/Code/JavaWrappers/gmwrapper"
 	jar -uf "$(SOURCEROOT)/Code/JavaWrappers/gmwrapper/org.RDKit.jar" \
 	    -C "$(SOURCEROOT)/Code/JavaWrappers/gmwrapper" libGraphMolWrap.so
 
+$(BUILDDIR)/rdkit/postgresql-$(PG_VERSION_MAJOR)-rdkit-strateos.deb: $(BUILDDIR)/rdkit/CPackConfig.cmake rdkit
+	cpack --config $< \
+	  -B $(@D) \
+	  -G DEB \
+	  -D CPACK_COMPONENTS_ALL=pgsql \
+	  -D CPACK_COMPONENT_PGSQL_GROUP="strateos" \
+	  -D CPACK_DEBIAN_PACKAGE_DEPENDS=postgresql-$(PG_VERSION_MAJOR) \
+	  -D CPACK_MONOLITHIC_INSTALL=FALSE \
+	  -D CPACK_PACKAGE_FILE_NAME=postgresql-$(PG_VERSION_MAJOR)-rdkit \
+	  -D CPACK_PACKAGE_VENDOR=strateos
+
+rdkit-pgsql-deb: $(BUILDDIR)/rdkit/postgresql-$(PG_VERSION_MAJOR)-rdkit-strateos.deb
 
 clean-installed:
-	xargs rm < $(BUILDDIR)/build/install_manifest.txt
+	xargs rm < $(BUILDDIR)/rdkit/install_manifest.txt
+
+clean:
+	rm -rf $(BUILDDIR)/rdkit

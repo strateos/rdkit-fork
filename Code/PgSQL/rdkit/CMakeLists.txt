@@ -280,5 +280,23 @@ endforeach()
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/InstallPgSql.cmake.in"
   "${CMAKE_CURRENT_BINARY_DIR}/InstallPgSql.cmake" @ONLY)
-install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallPgSql.cmake" COMPONENT pgsql)
+
+install(FILES ${PG_CURRENT_BINARY_DIR}${PG_RDKIT_LIB_SRC}
+        DESTINATION ${PG_PKGLIBDIR}
+        COMPONENT pgsql
+        RENAME ${PG_RDKIT_LIB_DEST}
+)
+
+install(FILES ${PG_CURRENT_SOURCE_DIR}/${EXTENSION}.control ${PG_CURRENT_BINARY_DIR}${EXTENSION}--${PG_EXTVERSION}.sql
+        DESTINATION ${PG_EXTENSIONDIR}
+        COMPONENT pgsql
+)
+
+install(DIRECTORY ${PG_CURRENT_BINARY_DIR}update_sql${installPgSQLSeparator} DESTINATION ${PG_EXTENSIONDIR}
+        COMPONENT pgsql
+        FILES_MATCHING PATTERN "*.sql"
+)
+
+#install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallPgSql.cmake" COMPONENT pgsql)
+
 add_test(testPgSQL ${testPgSQLCommand} ${testPgSQLName})
