@@ -16,12 +16,13 @@ PACKAGES=(
       swig3.0 # build requirement: RDKit java wrapper
       libeigen3-dev
       libfreetype6-dev
+      postgresql-server-dev-12
       unzip
       zip
       zlib1g-dev
 )
 
 # Is here sudo or not?
-command -v sudo && PKGM_CMD="sudo apt" || PKGM_CMD="apt"
+command -v sudo && PKGM_CMD="sudo apt-get" || PKGM_CMD="apt-get"
 export DEBIAN_FRONTEND=noninteractive
 ${PKGM_CMD} update && ${PKGM_CMD} install -y --no-install-recommends "${PACKAGES[@]}"
