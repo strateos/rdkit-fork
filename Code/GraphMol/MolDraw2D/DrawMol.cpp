@@ -10,6 +10,7 @@
 // Original author: David Cosgrove (CozChemIx Limited)
 //
 
+#include <algorithm>
 #include <iostream>
 #include <limits>
 
@@ -181,6 +182,11 @@ void DrawMol::initDrawMolecule(const ROMol &mol) {
 void DrawMol::extractAll(double scale) {
   extractAtomCoords();
   extractAtomSymbols();
+  // extractVariableBonds removes the * symbol from the end of dative bonds
+  // that are showing a haptic bond, so this needs to be done before the
+  // bonds are extracted, or it will shorten the bond so as not to clash with
+  // the * which won't be in the final picture.
+  extractVariableBonds();
   extractBonds();
   extractRegions();
   extractHighlights(scale);
@@ -190,7 +196,6 @@ void DrawMol::extractAll(double scale) {
   extractBondNotes();
   extractRadicals();
   extractSGroupData();
-  extractVariableBonds();
   extractBrackets();
   extractLinkNodes();
 }
@@ -537,7 +542,7 @@ void DrawMol::extractVariableBonds() {
         auto center = atCds_[oat];
         Point2D offset{drawOptions_.variableAtomRadius,
                        drawOptions_.variableAtomRadius};
-        std::vector<Point2D> points{center + offset, center - offset};
+        std::vector<Point2D> points{center, offset};
         DrawShapeEllipse *ell = new DrawShapeEllipse(
             points, 1, true, drawOptions_.variableAttachmentColour, true, oat);
         preShapes_.emplace_back(ell);
@@ -567,6 +572,31 @@ void DrawMol::extractVariableBonds() {
 }
 
 // ****************************************************************************
+namespace {
+// function to draw a label at the bottom of the bracket.
+DrawAnnotation *drawBottomLabel(const std::string &label,
+                                const DrawShape &brkShp,
+                                const MolDrawOptions &drawOptions,
+                                DrawText &textDrawer, bool horizontal) {
+  // annotations go on the last bracket of an sgroup
+  // LABEL goes at the bottom which is now the top
+  auto topPt = brkShp.points_[1];
+  auto brkPt = brkShp.points_[0];
+  if ((!horizontal && brkShp.points_[2].y > topPt.y) ||
+      (horizontal && brkShp.points_[2].x < topPt.x)) {
+    topPt = brkShp.points_[2];
+    brkPt = brkShp.points_[3];
+  }
+  DrawAnnotation *da = new DrawAnnotation(
+      label, TextAlignType::MIDDLE, "connect", drawOptions.annotationFontScale,
+      topPt + (topPt - brkPt), DrawColour(0.0, 0.0, 0.0), textDrawer);
+  if (brkPt.x < topPt.x) {
+    da->align_ = TextAlignType::START;
+  }
+  return da;
+}
+}  // namespace
+
 void DrawMol::extractBrackets() {
   auto &sgs = getSubstanceGroups(*drawMol_);
   if (sgs.empty()) {
@@ -588,10 +618,43 @@ void DrawMol::extractBrackets() {
 
     if (!sg.getAtoms().empty()) {
       // use the average position of the atoms in the sgroup
-      for (auto aidx : sg.getAtoms()) {
-        refPt += atCds_[aidx];
+      // Github5768 shows that this is a bit simplistic in some cases.  In
+      // that molecule, there is a long chain that stretches outside the
+      // bracket area that turns the last bracket the wrong way.
+      // Just pick out the SGroup atoms that are inside brackets, rather
+      // crudely.
+      double xMin = std::numeric_limits<double>::max() / 2.0;
+      double yMin = std::numeric_limits<double>::max() / 2.0;
+      double xMax = std::numeric_limits<double>::lowest() / 2.0;
+      double yMax = std::numeric_limits<double>::lowest() / 2.0;
+      for (const auto &brk : sg.getBrackets()) {
+        Point2D p1{brk[0].x, -brk[0].y};
+        Point2D p2{brk[1].x, -brk[1].y};
+        trans.TransformPoint(p1);
+        trans.TransformPoint(p2);
+        xMin = std::min({xMin, p1.x, p2.x});
+        yMin = std::min({yMin, p1.y, p2.y});
+        xMax = std::max({xMax, p1.x, p2.x});
+        yMax = std::max({yMax, p1.y, p2.y});
       }
-      refPt /= sg.getAtoms().size();
+
+      int numIn = 0;
+      for (auto aidx : sg.getAtoms()) {
+        if (atCds_[aidx].x >= xMin && atCds_[aidx].x <= xMax &&
+            atCds_[aidx].y >= yMin && atCds_[aidx].y <= yMax) {
+          refPt += atCds_[aidx];
+          ++numIn;
+        }
+      }
+      if (numIn) {
+        refPt /= numIn;
+      } else {
+        // we'll have to go with all of them, and live with the consequences
+        for (auto aidx : sg.getAtoms()) {
+          refPt += atCds_[aidx];
+        }
+        refPt /= sg.getAtoms().size();
+      }
     }
 
     std::vector<std::pair<Point2D, Point2D>> sgBondSegments;
@@ -668,22 +731,21 @@ void DrawMol::extractBrackets() {
         }
         annotations_.emplace_back(da);
       }
+
       std::string label;
       if (sg.getPropIfPresent("LABEL", label)) {
-        // annotations go on the last bracket of an sgroup
-        const auto &brkShp = *postShapes_[labelBrk];
-        // LABEL goes at the bottom which is now the top
-        auto topPt = brkShp.points_[1];
-        auto brkPt = brkShp.points_[0];
-        if ((!horizontal && brkShp.points_[2].y > topPt.y) ||
-            (horizontal && brkShp.points_[2].x < topPt.x)) {
-          topPt = brkShp.points_[2];
-          brkPt = brkShp.points_[3];
+        auto da = drawBottomLabel(label, *postShapes_[labelBrk], drawOptions_,
+                                  textDrawer_, horizontal);
+        annotations_.emplace_back(da);
+      } else if (sg.getPropIfPresent("TYPE", label)) {
+        if (label == "GEN") {
+          // ChemDraw doesn't draw the GEN (type=generic) label.
+          continue;
         }
-        DrawAnnotation *da = new DrawAnnotation(
-            label, TextAlignType::MIDDLE, "connect",
-            drawOptions_.annotationFontScale, topPt + (topPt - brkPt),
-            DrawColour(0.0, 0.0, 0.0), textDrawer_);
+        // draw the lowercase type if there's no label to go there.
+        std::transform(label.begin(), label.end(), label.begin(), ::tolower);
+        auto da = drawBottomLabel(label, *postShapes_[labelBrk], drawOptions_,
+                                  textDrawer_, horizontal);
         annotations_.emplace_back(da);
       }
     }
@@ -1476,7 +1538,7 @@ void DrawMol::makeStandardBond(Bond *bond, double doubleBondOffset) {
   } else if (bt == Bond::SINGLE && bond->getBondDir() == Bond::UNKNOWN) {
     makeWavyBond(bond, doubleBondOffset, cols);
   } else if (bt == Bond::DATIVE || bt == Bond::DATIVEL || bt == Bond::DATIVER) {
-    makeDativeBond(bond, cols);
+    makeDativeBond(bond, doubleBondOffset, cols);
   } else if (bt == Bond::ZERO) {
     makeZeroBond(bond, cols, shortDashes);
   } else if (bt == Bond::HYDROGEN) {
@@ -1783,7 +1845,7 @@ void DrawMol::makeWavyBond(Bond *bond, double offset,
 }
 
 // ****************************************************************************
-void DrawMol::makeDativeBond(Bond *bond,
+void DrawMol::makeDativeBond(Bond *bond, double offset,
                              const std::pair<DrawColour, DrawColour> &cols) {
   auto at1 = bond->getBeginAtom();
   auto at2 = bond->getEndAtom();
@@ -1795,10 +1857,13 @@ void DrawMol::makeDativeBond(Bond *bond,
   newBondLine(end1, mid, cols.first, cols.first, at1->getIdx(), atid2,
               bond->getIdx(), noDash);
   std::vector<Point2D> pts{mid, end2};
+  // Adjust the fraction of the line length that will be arrowhead so that
+  // it is a consistent number of pixels.
+  auto frac = 2.0 * offset / (end2 - end1).length();
   DrawShapeArrow *a = new DrawShapeArrow(
       pts, drawOptions_.bondLineWidth, false, cols.second, true,
       at1->getIdx() + activeAtmIdxOffset_, atid2 + activeAtmIdxOffset_,
-      bond->getIdx() + activeBndIdxOffset_, 0.2, M_PI / 6);
+      bond->getIdx() + activeBndIdxOffset_, frac, M_PI / 12);
   bonds_.push_back(std::unique_ptr<DrawShape>(a));
 }
 
@@ -2042,7 +2107,8 @@ void DrawMol::makeBondHighlightLines(double lineWidth, double scale) {
           // These effects can be seen in bond_highlights_8.svg produced
           // by catch_tests.cpp.
           DrawColour col = getHighlightBondColour(
-              bond->getIdx(), drawOptions_, highlightBonds_, highlightBondMap_);
+              bond, drawOptions_, highlightBonds_, highlightBondMap_,
+              highlightAtoms_, highlightAtomMap_);
           std::vector<Atom *> thisHighNbrs;
           std::vector<Atom *> nbrHighNbrs;
           auto nbr = drawMol_->getAtomWithIdx(nbrIdx);
@@ -2058,14 +2124,14 @@ void DrawMol::makeBondHighlightLines(double lineWidth, double scale) {
           // butterfly-type shape is produced rather than a rectangle
           // (see Github5592).  Make a convex hull, using a simplified
           // form of Graham's scan algorithm - all the points
-          // are in the convex hull so it's easier.  Grahsm's scan normally
-	  // has a second step that removes inner points, and this takes
-	  // care of any problems with floating point errors in the
-	  // comparisons below.  The shapes here are at most hexagons with
-	  // sharp angles so such issues have been deemed unlikely to
-	  // occur in practice.
+          // are in the convex hull so it's easier.  Graham's scan normally
+          // has a second step that removes inner points, and this takes
+          // care of any problems with floating point errors in the
+          // comparisons below.  The shapes here are at most hexagons with
+          // sharp angles so such issues have been deemed unlikely to
+          // occur in practice.
           // Sort so the lowest y point is first, with lowest x as
-	  // tie-breaker.
+          // tie-breaker.
           std::sort(points.begin(), points.end(),
                     [](Point2D &p1, Point2D &p2) -> bool {
                       if (p1.y < p2.y) {
@@ -2989,8 +3055,8 @@ void DrawMol::adjustBondsOnSolidWedgeEnds() {
           p1 = 1;
           p2 = 2;
         } else if (wedge->points_.size() == 9) {
-          p1 = 5;
-          p2 = 6;
+          p1 = 4;
+          p2 = 5;
         }
         // want the p1 or p2 that is furthest from the 3rd atom - make it p1
         if (p1 != -1 && p2 != -1) {
@@ -3213,7 +3279,8 @@ DrawColour DrawMol::getColour(int atom_idx) const {
                       nbr->getIdx()) != highlightBonds_.end() ||
             highlightBondMap_.find(nbr->getIdx()) != highlightBondMap_.end()) {
           DrawColour hc = getHighlightBondColour(
-              nbr->getIdx(), drawOptions_, highlightBonds_, highlightBondMap_);
+              nbr, drawOptions_, highlightBonds_, highlightBondMap_,
+              highlightAtoms_, highlightAtomMap_);
           if (!highCol) {
             highCol.reset(new DrawColour(hc));
           } else {
@@ -3322,15 +3389,36 @@ DrawColour getColourByAtomicNum(int atomic_num,
 
 // ****************************************************************************
 DrawColour getHighlightBondColour(
-    int bondIdx, const MolDrawOptions &drawOptions,
+    const Bond *bond, const MolDrawOptions &drawOptions,
     const std::vector<int> &highlightBonds,
-    const std::map<int, DrawColour> &highlightBondMap) {
+    const std::map<int, DrawColour> &highlightBondMap,
+    const std::vector<int> &highlightAtoms,
+    const std::map<int, DrawColour> &highlightAtomMap) {
+  PRECONDITION(bond, "no bond provided");
+  RDUNUSED_PARAM(highlightAtoms);
+
   DrawColour col(0.0, 0.0, 0.0);
-  if (std::find(highlightBonds.begin(), highlightBonds.end(), bondIdx) !=
+  if (std::find(highlightBonds.begin(), highlightBonds.end(), bond->getIdx()) !=
       highlightBonds.end()) {
     col = drawOptions.highlightColour;
-    if (highlightBondMap.find(bondIdx) != highlightBondMap.end()) {
-      col = highlightBondMap.find(bondIdx)->second;
+    if (highlightBondMap.find(bond->getIdx()) != highlightBondMap.end()) {
+      col = highlightBondMap.find(bond->getIdx())->second;
+    } else {
+      // the highlight color of the bond is not explicitly provided. What about
+      // the highlight colors of the begin/end atoms? Ideally these will both be
+      // the same, but we want to set the coloring even if that's not the
+      // case, so we'll use:
+      //  - begin atom color if that is set
+      //  - end atom color if that is set
+      //  - the default highlight color otherwise
+      if (highlightAtomMap.find(bond->getBeginAtomIdx()) !=
+          highlightAtomMap.end()) {
+        col = highlightAtomMap.find(bond->getBeginAtomIdx())->second;
+
+      } else if (highlightAtomMap.find(bond->getEndAtomIdx()) !=
+                 highlightAtomMap.end()) {
+        col = highlightAtomMap.find(bond->getEndAtomIdx())->second;
+      }
     }
   }
   return col;

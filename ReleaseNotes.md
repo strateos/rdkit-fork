@@ -1,3 +1,150 @@
+# Release_2022.09.4
+(Changes relative to Release_2022.09.3)
+
+## Acknowledgements
+Jason Biggs, Jacob Bloom, David Cosgrove, Eloy Félix, Peter Gedeck, 
+Emanuele Guidotti, Gareth Jones, Maria Kadukova, Brian Kelley, Chris Kuenneth, 
+Lucas Morin, Dan Nealschneider, Ricardo Rodriguez-Schmidt. Vincent F. Scalfani,
+Georgi Stoychev, Paolo Tosco, Patrick Walters, josh-collaborationspharma 
+
+## Bug Fixes:
+  - MolFromMol2File: O.co2 atom type correctness check ignores phosphate groups
+ (github #3246 from chmnk)
+  - Segfault with coordgen v3.0.0
+ (github #4845 from lucasmorin222)
+   - Update CoordGen version
+ (github pull #5927 from jasondbiggs)
+  - ChemicalReactionToRxnBlock ignores separateAgents if forceV3000 is true
+ (github #5785 from jacobbloom)
+  - Properties with new lines can create invalid SDFiles
+ (github #5827 from bp-kelley)
+  - Allow building PgSQL RPM and DEB packages
+ (github #5836 from ptosco)
+  - Explicit valence check fails for certain SMILES
+ (github #5849 from josh-collaborationspharma)
+  - Set emsdk path for freetype in emscripten builds
+ (github #5857 from ptosco)
+  - DrawMorganBit fails by default 
+ (github #5863 from eguidotti)
+  - Fix #5810 in V2000 mol files.
+ (github #5864 from eloyfelix)
+  - Chemical drawings should be automatically enabled on Colab
+ (github #5868 from kuelumbus)
+  - use enhanced stereo when uniquifying in SimpleEnum
+ (github #5874 from greglandrum)
+  - Fix documentation example for KeyFromPropHolder
+ (github #5886 from gedeck)
+  - Allow unrecognized atom types when strictParsing=False
+ (github #5891 from greglandrum)
+  - DetermineBonds assigning methyl carbon as tetrahedral center
+ (github #5894 from jasondbiggs)
+  - numpy.float is no longer supported and causes exceptions 
+ (github #5895 from PatWalters)
+  - moldraw2DTest1 failure when building on aarch64
+ (github #5899 from vfscalfani)
+  - DetermineBondOrders running out of memory on medium-sized disconnected structure
+ (github #5902 from jasondbiggs)
+  - clear MDL Rgroup labels from core atoms when we aren't using them
+ (github #5904 from greglandrum)
+  - AvalonTools: Avoid that trailing garbage pollutes the fmemopen buffer
+ (github #5928 from ptosco)
+  - "not" queries in molfiles get inverted
+ (github #5930 from d-b-w)
+  - CalcTPSA() doesn't use options when caching
+ (github #5941 from greglandrum)
+  - Bad drawing of end points for dative bonds
+ (github #5943 from DavidACosgrove)
+  - Extremes of drawn ellipses not being calculated correctly.
+ (github #5947 from DavidACosgrove)
+  - Arrow heads of dative bonds are different sizes
+ (github #5949 from DavidACosgrove)
+  - Wrong bond endpoint when connecting to wedge bond in 2D image
+ (github #5963 from stgeo)
+  - Tiny change to get demo.html to load in legacy browsers
+ (github #5964 from ptosco)
+  - Drawing code should not generate kekulization errors
+ (github #5974 from greglandrum)
+
+
+# Release_2022.09.3
+(Changes relative to Release_2022.09.2)
+
+## Acknowledgements
+David Cosgrove, Eloy Félix, Michel Moreau, Rocco Moretti, Dan Nealschneider, Paolo Tosco
+
+## Bug Fixes:
+ - Missing monomer labels when depicting `MON` SGroups
+ (github #5767 from eloyfelix)
+  - Wrongly oriented SGroup bracket
+ (github #5768 from eloyfelix)
+  - Adjust LocaleSwitcher on Windows when RDK_BUILD_THREADSAFE_SSS not set
+ (github #5783 from roccomoretti)
+  - KekulizationException in tautomer canonicalization
+ (github #5784 from d-b-w)
+  - extend the allowed valences of the alkali earths
+ (github #5786 from greglandrum)
+  - Minimallib build (rdkit-js) not working for release 2022.09.2
+ (github #5792 from MichelML)
+  - Remove dependency on MSVC runtime DLL in MinGW builds
+ (github #5800 from ptosco)
+  - Update macOS target platform to 10.13
+ (github #5802 from ptosco)
+  - `R#` atom label information lost in molfile if not handled by the `RGP` spec
+ (github #5810 from eloyfelix)
+  - Stop using recommonmark in the documentation
+ (github #5812 from greglandrum)
+
+
+# Release_2022.09.2
+(Changes relative to Release_2022.09.1)
+
+## Acknowledgements
+Michael Banck, David Cosgrove, Eloy Félix, Mosè Giordano, Brian Kelley, Dan
+Nealschneider, Noel O'Boyle, Ricardo Rodriguez-Schmidt, Paolo Tosco, 
+
+## Bug Fixes:
+  - fp.ToList() fails for empty molecule
+ (github #5677 from baoilleach)
+  - SMILES and SMARTS parse bonds in a different order
+ (github #5683 from ricrogz)
+  - postgresql makefile needs to be updated to use c++17
+ (github #5685 from mbanck)
+  - Exception raised when reading very large SMILES file
+ (github #5692 from DavidACosgrove)
+  - Update warning message about aromaticity detection
+ (github #5696 from d-b-w)
+  - stop building catch_main when tests are disabled
+ (github #5697 from greglandrum)
+  - Make PandasTools.RGroupDecompositionToFrame re-entrant
+ (github #5698 from greglandrum)
+  - PandasTools.RGroupDecompositionToFrame() should call ChangeMoleculeRendering()
+ (github #5702 from greglandrum)
+  - MolDraw2D should automatically set bond highlight color when atom colors are changed
+ (github #5704 from greglandrum)
+  - Use correct `_WIN32` macro for checking Windows target
+ (github #5710 from giordano)
+  - Environment not set properly in chirality tests for MinGW builds
+ (github #5711 from ptosco)
+  - windows.h header should be lowercase
+ (github #5712 from ptosco)
+  - Fixes bond index parsing for w/c/t/ctu labels in CXSMILES/CXSMARTS
+ (github #5722 from ricrogz)
+  - Fix a deprecation warning in pythonTestDirRoot
+ (github #5723 from ricrogz)
+  - allowNontetrahedralChiralty should be honored when reading/writing SMILES
+ (github #5728 from greglandrum)
+  - Allow setting custom FREETYPE_LIBRARY/FREETYPE_INCLUDE_DIRS through CMake
+ (github #5730 from ptosco)
+  - Avoid passing a NULL pointer to CanSmiles()
+ (github #5750 from ptosco)
+  - CDXML reader incorrectly sets stereo on crossed double bonds
+ (github #5752 from baoilleach)
+  - Add wavy stereo bond support to cdxml
+ (github pull #5755 from bp-kelley)
+  - `R` atom label information lost in molfile if not backed by a `M RGP` entry
+ (github #5763 from eloyfelix)
+
+
 # Release_2022.09.1
 (Changes relative to Release_2022.03.1)
 

@@ -2367,6 +2367,7 @@ TEST_CASE("allow 5 valent N/P/As to kekulize", "[kekulization]") {
   ps.sanitize = false;
   SECTION("kekulization") {
     for (const auto &pr : tests) {
+      INFO(pr.first);
       std::unique_ptr<RWMol> m{SmilesToMol(pr.first, ps)};
       REQUIRE(m);
       m->updatePropertyCache(false);
@@ -2376,6 +2377,7 @@ TEST_CASE("allow 5 valent N/P/As to kekulize", "[kekulization]") {
   }
   SECTION("sanitization") {
     for (const auto &pr : tests) {
+      INFO(pr.first);
       std::unique_ptr<RWMol> m{SmilesToMol(pr.first, ps)};
       REQUIRE(m);
       m->updatePropertyCache(false);
@@ -2801,6 +2803,95 @@ TEST_CASE(
     for (const auto &smi : expectedFailures) {
       INFO(smi);
       CHECK_THROWS_AS(SmilesToMol(smi), MolSanitizeException);
+    }
+  }
+}
+
+TEST_CASE("extended valences for alkali earths") {
+  SECTION("valence of 2") {
+    // make sure the valence of two works
+    std::vector<std::pair<std::string, unsigned int>> cases{
+        {"C[Be]", 1},  {"C[Mg]", 1},  {"C[Ca]", 1},  {"C[Sr]", 1},
+        {"C[Ba]", 1},  {"C[Ra]", 1},  {"C[Be]C", 0}, {"C[Mg]C", 0},
+        {"C[Ca]C", 0}, {"C[Sr]C", 0}, {"C[Ba]C", 0}, {"C[Ra]C", 0}};
+
+    for (const auto &pr : cases) {
+      INFO(pr.first);
+      std::unique_ptr<RWMol> m{SmilesToMol(pr.first)};
+      REQUIRE(m);
+      m->getAtomWithIdx(1)->setNoImplicit(false);
+      m->getAtomWithIdx(1)->setNumRadicalElectrons(0);
+      MolOps::sanitizeMol(*m);
+      CHECK(m->getAtomWithIdx(1)->getTotalNumHs() == pr.second);
+    }
+  }
+  SECTION("higher valence") {
+    // make sure the valence of two works
+    std::vector<std::pair<std::string, unsigned int>> cases{{"C[Mg](C)C", 0},
+                                                            {"C[Ca](C)C", 0},
+                                                            {"C[Sr](C)C", 0},
+                                                            {"C[Ba](C)C", 0},
+                                                            {"C[Ra](C)C", 0}};
+
+    for (const auto &pr : cases) {
+      INFO(pr.first);
+      std::unique_ptr<RWMol> m{SmilesToMol(pr.first)};
+      REQUIRE(m);
+      m->getAtomWithIdx(1)->setNoImplicit(false);
+      m->getAtomWithIdx(1)->setNumRadicalElectrons(0);
+      MolOps::sanitizeMol(*m);
+      CHECK(m->getAtomWithIdx(1)->getTotalNumHs() == pr.second);
+    }
+  }
+  SECTION("everybody loves grignards") {
+    auto m = "CC(C)O[Mg](Cl)(<-O1CCCC1)<-O1CCCC1"_smiles;
+    REQUIRE(m);
+  }
+}
+
+TEST_CASE("Github #5849: aromatic tag allows bad valences to pass") {
+  SECTION("basics") {
+    std::vector<std::string> smis = {
+        "Cc1(C)=NCCCC1",  // one bogus aromatic atom
+    };
+    for (const auto &smi : smis) {
+      INFO(smi);
+      CHECK_THROWS_AS(SmilesToMol(smi), AtomValenceException);
+    }
+  }
+  SECTION("as reported") {
+    std::vector<std::string> smis = {
+        "c1c(ccc2NC(CN=c(c21)(C)C)=O)O",
+        "c1c(c2n(C(NC(Oc2cc1)C)c1c[nH]cn1)=O)O",
+        "c1c2C(c4c(cc(c(C(=O)O)c4)O)O)Oc(c2c(c(O)c1O)O)(=O)O",
+        "c12C(CN(C)C)CCCCN=c(c2cc2c1cc[nH]c2)(C)C"};
+    for (const auto &smi : smis) {
+      INFO(smi);
+      CHECK_THROWS_AS(SmilesToMol(smi), MolSanitizeException);
+    }
+  }
+  SECTION("edge cases atoms") {
+    std::vector<std::string> smis = {
+        "c1c(ccc2NC(CN=c(c21)=C)=O)O",     // exocyclic double bond
+        "c1c(ccc2NC(Cn=c(c21)(C)C)=O)O",   // even more bogus aromatic atoms
+        "c1c(ccc2NC(CN=c(c21)(:c)C)=O)O",  // even more bogus aromatic atoms
+    };
+    for (const auto &smi : smis) {
+      INFO(smi);
+      CHECK_THROWS_AS(SmilesToMol(smi), AtomValenceException);
+    }
+  }
+  SECTION("edge cases kekulization") {
+    std::vector<std::string> smis = {
+        "c12ccccc1=NCCC2",  // adjacent to an actual aromatic ring
+        "Cc1(C)=NCCCc1",    // two bogus aromatic atoms
+        "Cc1(C)nCCCC=1",    // two bogus aromatic atoms
+        "Cc1(C)nCCCc1",     // three bogus aromatic atoms
+        "Cc:1(C):nCCCc:1",  // three bogus aromatic atoms
+    };
+    for (const auto &smi : smis) {
+      INFO(smi);
+      CHECK_THROWS_AS(SmilesToMol(smi), KekulizeException);
     }
   }
 }
