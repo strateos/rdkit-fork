@@ -206,6 +206,7 @@ extern "C" CROMol parseMolText(char *data, bool asSmarts, bool warnOnFail,
           mol->updatePropertyCache(false);
           MolOps::setAromaticity(*mol);
           MolOps::mergeQueryHs(*mol);
+          MolOps::assignStereochemistry(*mol);
         }
       }
     } else {

@@ -400,6 +400,7 @@ const std::string AtomGetMolFileSymbol(
             static_cast<ATOM_EQUALS_QUERY *>(atom->getQuery())->getVal() ==
                 1))) {
         res = "A";
+        queryListAtoms.set(atom->getIdx());
       } else if (atom->hasQuery() &&
                  (atom->getQuery()->getTypeLabel() == "Q" ||
                   (atom->getQuery()->getNegation() &&
@@ -530,9 +531,12 @@ bool hasNonDefaultValence(const Atom *atom) {
   if (atom->getNumRadicalElectrons() != 0) {
     return true;
   }
-  if (atom->hasQuery()) {
+  // for queries and atoms which don't have computed properties, the answer is
+  // always no:
+  if (atom->hasQuery() || atom->needsUpdatePropertyCache()) {
     return false;
   }
+
   if (atom->getAtomicNum() == 1 ||
       SmilesWrite ::inOrganicSubset(atom->getAtomicNum())) {
     // for the ones we "know", we may have to specify the valence if it's
@@ -1359,7 +1363,7 @@ std::string MolToMolBlock(const ROMol &mol, bool includeStereo, int confId,
   if (trwmol.needsUpdatePropertyCache()) {
     trwmol.updatePropertyCache(false);
   }
-  if (kekulize) {
+  if (kekulize && mol.getNumBonds()) {
     MolOps::Kekulize(trwmol);
   }
 
