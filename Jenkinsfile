@@ -1,3 +1,17 @@
+// Check which Jenkins instanice we're using
+def getJenkinsMaster() {
+    return env.BUILD_URL.split('/')[2].split(':')[0]
+}
+
+// Execute this before anything else, including requesting any time on an agent
+masterURL = getJenkinsMaster()
+println("INFO: Jenkins Master URL: " + masterURL)
+if (! masterURL.equals("jenkins.core.internal.strateos.com")) {
+   println("INFO: Incorrect Jenkins instance. This job should only build on our 'Core' instance in EKS (https://jenkins.core.internal.strateos.com).")
+   currentBuild.result = 'ABORTED'
+   error("ABORTED. This build should run on our 'Core' instance in EKS.")
+}
+
 // Run tests: RDBASE=$(pwd) ctest --test-dir ${BUILDDIR}
 pipeline {
 
