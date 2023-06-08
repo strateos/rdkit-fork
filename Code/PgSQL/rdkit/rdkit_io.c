@@ -2,19 +2,19 @@
 //  Copyright (c) 2010-2021, Novartis Institutes for BioMedical Research Inc.
 //    and other RDKit contributors
 //  All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
-// met: 
+// met:
 //
-//     * Redistributions of source code must retain the above copyright 
+//     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above
-//       copyright notice, this list of conditions and the following 
-//       disclaimer in the documentation and/or other materials provided 
+//       copyright notice, this list of conditions and the following
+//       disclaimer in the documentation and/or other materials provided
 //       with the distribution.
-//     * Neither the name of Novartis Institutes for BioMedical Research Inc. 
-//       nor the names of its contributors may be used to endorse or promote 
+//     * Neither the name of Novartis Institutes for BioMedical Research Inc.
+//       nor the names of its contributors may be used to endorse or promote
 //       products derived from this software without specific prior written
 //       permission.
 //
@@ -57,7 +57,7 @@ mol_in(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 PGDLLEXPORT Datum           mol_recv(PG_FUNCTION_ARGS);
@@ -74,7 +74,7 @@ mol_recv(PG_FUNCTION_ARGS) {
 
   PG_FREE_IF_COPY(data, 0);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 
@@ -133,7 +133,7 @@ mol_from_ctab(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 PGDLLEXPORT Datum           qmol_from_ctab(PG_FUNCTION_ARGS);
@@ -152,7 +152,7 @@ qmol_from_ctab(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 PGDLLEXPORT Datum           mol_from_smarts(PG_FUNCTION_ARGS);
@@ -170,7 +170,7 @@ mol_from_smarts(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 PGDLLEXPORT Datum           mol_from_smiles(PG_FUNCTION_ARGS);
@@ -188,7 +188,25 @@ mol_from_smiles(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
+}
+
+PGDLLEXPORT Datum           mol_from_smiles_no_sanitize(PG_FUNCTION_ARGS);
+PG_FUNCTION_INFO_V1(mol_from_smiles_no_sanitize);
+Datum
+mol_from_smiles_no_sanitize(PG_FUNCTION_ARGS) {
+  char    *data = PG_GETARG_CSTRING(0);
+  CROMol  mol;
+  Mol     *res;
+
+  mol = parseMolText(data,false,true,false,false);
+  if (!mol) {
+    PG_RETURN_NULL();
+  }
+  res = deconstructROMol(mol);
+  freeCROMol(mol);
+
+  PG_RETURN_MOL_P(res);
 }
 
 PGDLLEXPORT Datum           qmol_from_smiles(PG_FUNCTION_ARGS);
@@ -206,7 +224,7 @@ qmol_from_smiles(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 PGDLLEXPORT Datum           mol_to_ctab(PG_FUNCTION_ARGS);
@@ -339,7 +357,7 @@ mol_from_pkl(PG_FUNCTION_ARGS) {
 
   PG_FREE_IF_COPY(data, 0);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 
@@ -402,7 +420,7 @@ mol_from_json(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 
@@ -423,7 +441,7 @@ qmol_in(PG_FUNCTION_ARGS) {
   res = deconstructROMol(mol);
   freeCROMol(mol);
 
-  PG_RETURN_MOL_P(res);           
+  PG_RETURN_MOL_P(res);
 }
 
 
@@ -489,9 +507,9 @@ bfp_to_binary_text(PG_FUNCTION_ARGS) {
   fcinfo->flinfo->fn_extra = searchBfpCache(
 					    fcinfo->flinfo->fn_extra,
 					    fcinfo->flinfo->fn_mcxt,
-					    PG_GETARG_DATUM(0), 
+					    PG_GETARG_DATUM(0),
 					    NULL, &abfp, NULL);
-  
+
   PG_RETURN_BYTEA_P( deconstructCBfp(abfp) );
 }
 
@@ -524,9 +542,9 @@ rdkit_version(PG_FUNCTION_ARGS) {
   char    *ver = "" RDKITVER;
   char    buf[1024];
   Assert(strlen(ver) == 6);
-  snprintf(buf, sizeof(buf), "%d.%d.%d", 
-           atoi( pnstrdup(ver, 2) ),  
-           atoi( pnstrdup(ver + 2 , 2) ),  
+  snprintf(buf, sizeof(buf), "%d.%d.%d",
+           atoi( pnstrdup(ver, 2) ),
+           atoi( pnstrdup(ver + 2 , 2) ),
            atoi( pnstrdup(ver + 4, 2) ));
 
   PG_RETURN_TEXT_P(cstring_to_text(buf));
@@ -561,7 +579,7 @@ reaction_in(PG_FUNCTION_ARGS) {
   rxn = deconstructChemReact(crxn);
   freeChemReaction(crxn);
 
-  PG_RETURN_REACTION_P(rxn);           
+  PG_RETURN_REACTION_P(rxn);
 }
 
 PGDLLEXPORT Datum           reaction_recv(PG_FUNCTION_ARGS);
@@ -580,7 +598,7 @@ reaction_recv(PG_FUNCTION_ARGS) {
 
   PG_FREE_IF_COPY(data, 0);
 
-  PG_RETURN_REACTION_P(rxn);           
+  PG_RETURN_REACTION_P(rxn);
 }
 
 
@@ -733,5 +751,3 @@ reaction_to_smarts(PG_FUNCTION_ARGS) {
 
   PG_RETURN_CSTRING( pnstrdup(str, len) );
 }
-
-
