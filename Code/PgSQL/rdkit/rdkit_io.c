@@ -203,8 +203,8 @@ qmol_from_smiles(PG_FUNCTION_ARGS) {
   Mol     *res;
 
   const bool sanitize = getSanitize();
-  ereport(WARNING,
-          (errcode(ERRCODE_WARNING),
+  ereport(ERROR,
+          (errcode(ERRCODE_DATA_EXCEPTION),
            errmsg("sanitize '%d'", sanitize)));
   mol = parseMolText(data,false,true,true, sanitize);
   if (!mol) {
