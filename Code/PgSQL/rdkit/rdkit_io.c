@@ -181,24 +181,6 @@ mol_from_smiles(PG_FUNCTION_ARGS) {
   CROMol  mol;
   Mol     *res;
 
-  mol = parseMolText(data,false,true,false,true);
-  if (!mol) {
-    PG_RETURN_NULL();
-  }
-  res = deconstructROMol(mol);
-  freeCROMol(mol);
-
-  PG_RETURN_MOL_P(res);
-}
-
-PGDLLEXPORT Datum           mol_from_smiles_no_sanitize(PG_FUNCTION_ARGS);
-PG_FUNCTION_INFO_V1(mol_from_smiles_no_sanitize);
-Datum
-mol_from_smiles_no_sanitize(PG_FUNCTION_ARGS) {
-  char    *data = PG_GETARG_CSTRING(0);
-  CROMol  mol;
-  Mol     *res;
-
   mol = parseMolText(data,false,true,false,false);
   if (!mol) {
     PG_RETURN_NULL();
