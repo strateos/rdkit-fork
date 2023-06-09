@@ -38,7 +38,6 @@
 #include "rdkit.h"
 #include "cache.h"
 #include "guc.h"
-#include <stdio.h>
 
 
 PG_MODULE_MAGIC;
@@ -185,7 +184,7 @@ mol_from_smiles(PG_FUNCTION_ARGS) {
   Mol     *res;
 
   const bool sanitize = getSanitize();
-  mol = parseMolText(data,false,true,false,sanitize);
+  mol = parseMolText(data,false,true,false, sanitize);
   if (!mol) {
     PG_RETURN_NULL();
   }
