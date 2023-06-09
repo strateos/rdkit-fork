@@ -203,7 +203,7 @@ qmol_from_smiles(PG_FUNCTION_ARGS) {
   Mol     *res;
 
   const bool sanitize = getSanitize();
-  elog(ERROR,"Unknown strategy: %d", "sanitize: %d\n", sanitize);
+  elog(ERROR,"sanitize: %d\n", sanitize);
 
   mol = parseMolText(data,false,true,true, sanitize);
   if (!mol) {
