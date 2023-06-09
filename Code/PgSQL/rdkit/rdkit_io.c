@@ -38,6 +38,8 @@
 #include "rdkit.h"
 #include "cache.h"
 #include "guc.h"
+#include <stdio.h>
+
 
 PG_MODULE_MAGIC;
 
@@ -201,8 +203,9 @@ qmol_from_smiles(PG_FUNCTION_ARGS) {
   Mol     *res;
 
   const bool sanitize = getSanitize();
+  printf("sanitize: %d\n", sanitize);
 
-  mol = parseMolText(data,false,true,true,sanitize);
+  mol = parseMolText(data,false,true,true, sanitize);
   if (!mol) {
     PG_RETURN_NULL();
   }
