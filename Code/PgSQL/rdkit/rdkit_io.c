@@ -184,7 +184,8 @@ mol_from_smiles(PG_FUNCTION_ARGS) {
   CROMol  mol;
   Mol     *res;
 
-  mol = parseMolText(data,false,true,false,false);
+  const bool sanitize = getSanitize();
+  mol = parseMolText(data,false,true,false,sanitize);
   if (!mol) {
     PG_RETURN_NULL();
   }
@@ -202,11 +203,7 @@ qmol_from_smiles(PG_FUNCTION_ARGS) {
   CROMol  mol;
   Mol     *res;
 
-  const bool sanitize = getSanitize();
-  ereport(ERROR,
-          (errcode(ERRCODE_DATA_EXCEPTION),
-           errmsg("sanitize '%d'", sanitize)));
-  mol = parseMolText(data,false,true,true, sanitize);
+  mol = parseMolText(data,false,true,true, false);
   if (!mol) {
     PG_RETURN_NULL();
   }
