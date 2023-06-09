@@ -60,6 +60,7 @@ double getThresholdUnmappedReactantAtoms(void);
 bool getInitReaction(void);
 int getReactionDifferenceFPWeightNonagents(void);
 int getReactionDifferenceFPWeightAgents(void);
+bool getSanitize(void);
 
 #ifdef __cplusplus
 }

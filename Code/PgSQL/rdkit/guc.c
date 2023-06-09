@@ -2,19 +2,19 @@
 //  Copyright (c) 2010-2021 Novartis Institutes for BioMedical Research Inc.
 //    and other RDKit contributors
 //  All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
-// met: 
+// met:
 //
-//     * Redistributions of source code must retain the above copyright 
+//     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above
-//       copyright notice, this list of conditions and the following 
-//       disclaimer in the documentation and/or other materials provided 
+//       copyright notice, this list of conditions and the following
+//       disclaimer in the documentation and/or other materials provided
 //       with the distribution.
-//     * Neither the name of Novartis Institutes for BioMedical Research Inc. 
-//       nor the names of its contributors may be used to endorse or promote 
+//     * Neither the name of Novartis Institutes for BioMedical Research Inc.
+//       nor the names of its contributors may be used to endorse or promote
 //       products derived from this software without specific prior written permission.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -44,6 +44,7 @@ static bool rdkit_do_enhanced_stereo_sss = false;
 static bool rdkit_ignore_reaction_agents = false;
 static bool rdkit_move_unmmapped_reactants_to_agents = true;
 static bool rdkit_init_reaction = true;
+static bool rdkit_sanitize = true;
 static bool rdkit_guc_inited = false;
 
 #define SSS_FP_SIZE 2048
@@ -401,6 +402,18 @@ initRDKitGUC()
                            NULL,
                            NULL
                            );
+  DefineCustomBoolVariable(
+                           "rdkit.sanitize",
+                           "Sanitize molecules during loading",
+                           "Sanitize molecules during loading",
+                           &rdkit_sanitize,
+                           true,
+                           PGC_USERSET,
+                           0,
+                           NULL,
+                           NULL,
+                           NULL
+  );
   rdkit_guc_inited = true;
 }
 
@@ -567,6 +580,14 @@ getReactionDifferenceFPWeightNonagents(void) {
   if (!rdkit_guc_inited)
     initRDKitGUC();
   return rdkit_difference_FP_weight_nonagents;
+}
+
+bool
+getSanitize(void) {
+  if (!rdkit_guc_inited)
+    initRDKitGUC();
+
+  return rdkit_sanitize;
 }
 
 PGDLLEXPORT void _PG_init(void);

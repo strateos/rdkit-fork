@@ -37,6 +37,7 @@
 
 #include "rdkit.h"
 #include "cache.h"
+#include "guc.h"
 
 PG_MODULE_MAGIC;
 
@@ -199,7 +200,9 @@ qmol_from_smiles(PG_FUNCTION_ARGS) {
   CROMol  mol;
   Mol     *res;
 
-  mol = parseMolText(data,false,true,true,false);
+  const bool sanitize = getSanitize();
+
+  mol = parseMolText(data,false,true,true,sanitize);
   if (!mol) {
     PG_RETURN_NULL();
   }
