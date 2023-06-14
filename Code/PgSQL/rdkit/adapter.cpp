@@ -197,7 +197,8 @@ extern "C" CROMol parseMolText(char *data, bool asSmarts, bool warnOnFail,
           unsigned int failedOp;
           unsigned int ops = MolOps::SANITIZE_ALL ^
                              MolOps::SANITIZE_PROPERTIES ^
-                             MolOps::SANITIZE_KEKULIZE;
+                             MolOps::SANITIZE_KEKULIZE ^
+                             MolOps::SANITIZE_CLEANUP;
           MolOps::sanitizeMol(*mol, failedOp, ops);
         }
       } else {
