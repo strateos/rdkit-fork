@@ -63,8 +63,8 @@ DrawMol::DrawMol(
       yMax_(std::numeric_limits<double>::lowest() / 2.0),
       xRange_(std::numeric_limits<double>::max()),
       yRange_(std::numeric_limits<double>::max()),
-      flexiCanvasX_(width_ < 0.0),
-      flexiCanvasY_(height_ < 0.0) {
+      flexiCanvasX_(width < 0.0),
+      flexiCanvasY_(height < 0.0) {
   if (highlight_atoms) {
     highlightAtoms_ = *highlight_atoms;
   }
@@ -125,6 +125,23 @@ void DrawMol::createDrawObjects() {
       ignoreFontLimits) {
     // in either of these cases, the relative font size isn't what we were
     // expecting, so we need to rebuild everything.
+
+    // furthermore, if it's a fully flexible canvas and the font scale is
+    // greater than the global scale, if there are characters at the edge
+    // of the image, the canvas won't be big enough (Github6111). Rebuild
+    // with an appropriate relative font size.
+    if (flexiCanvasX_ && flexiCanvasY_ && (fontScale_ - scale_) > 1e-4) {
+      width_ = -1;
+      height_ = -1;
+      auto currScale = textDrawer_.fontScale();
+      auto relScale = fontScale_ / scale_;
+      resetEverything();
+      fontScale_ = relScale;
+      textDrawer_.setFontScale(relScale, true);
+      extractAll(scale_);
+      calculateScale();
+      textDrawer_.setFontScale(currScale, true);
+    }
     setScale(scale_, textDrawer_.fontScale(), ignoreFontLimits);
   } else {
     finishCreateDrawObjects();
@@ -133,10 +150,12 @@ void DrawMol::createDrawObjects() {
 
 // ****************************************************************************
 void DrawMol::finishCreateDrawObjects() {
-  // the legend needs the final scale to get the fonts the correct size.
+  // the legend and mol notes need the final scale to get the fonts the
+  // correct size.
   extractLegend();
   changeToDrawCoords();
   // these need the draw coords.
+  extractMolNotes();
   extractCloseContacts();
   drawingInitialised_ = true;
 }
@@ -191,7 +210,6 @@ void DrawMol::extractAll(double scale) {
   extractRegions();
   extractHighlights(scale);
   extractAttachments();
-  extractMolNotes();
   extractAtomNotes();
   extractBondNotes();
   extractRadicals();
@@ -366,11 +384,41 @@ void DrawMol::extractMolNotes() {
 
   if (!note.empty()) {
     // molecule annotations use a full-size font, hence the 1 below.
-    DrawAnnotation *annot = new DrawAnnotation(
-        note, TextAlignType::START, "note", 1, Point2D(0.0, 0.0),
-        drawOptions_.annotationColour, textDrawer_);
-    calcMolNotePosition(atCds_, *annot);
-    annotations_.emplace_back(annot);
+    DrawAnnotation tmp(note, TextAlignType::START, "note", 1, Point2D(0.0, 0.0),
+                       drawOptions_.annotationColour, textDrawer_);
+    double height, width;
+    tmp.getDimensions(width, height);
+    // Try all 4 corners until there's no clash with the underlying molecule.
+    // Even though alignment is START, the DrawAnnotation puts the middle
+    // of the first char at the location, so that needs to be adjusted for.
+    std::vector<Point2D> locs = {
+        {width_ - width, height},
+        {0.0 + tmp.rects_[0]->width_ / 2.0, height},
+        {0.0 + tmp.rects_[0]->width_ / 2.0, double(drawHeight_ - height)},
+        {width_ - width, double(drawHeight_ - height)},
+    };
+    bool didIt = false;
+    for (int i = 0; i < 3; ++i) {
+      locs[i].x += xOffset_;
+      locs[i].y += yOffset_;
+      DrawAnnotation *annot =
+          new DrawAnnotation(note, TextAlignType::START, "note", 1.0, locs[i],
+                             drawOptions_.annotationColour, textDrawer_);
+      // Put it into the legends_, because it's already in draw coords, so
+      // shouldn't be treated by changeToDrawCoords.
+      if (!doesNoteClash(*annot)) {
+        legends_.emplace_back(annot);
+        didIt = true;
+        break;
+      }
+    }
+    if (!didIt) {
+      // There was nowhere to put it that didn't clash, so live with it.
+      DrawAnnotation *annot =
+          new DrawAnnotation(note, TextAlignType::START, "note", 1.0, locs[0],
+                             drawOptions_.annotationColour, textDrawer_);
+      legends_.emplace_back(annot);
+    }
   }
 }
 
@@ -1166,7 +1214,9 @@ std::pair<std::string, OrientType> DrawMol::getAtomSymbolAndOrientation(
 // ****************************************************************************
 std::string getAtomListText(const Atom &atom) {
   PRECONDITION(atom.hasQuery(), "no query");
-  PRECONDITION(atom.getQuery()->getDescription() == "AtomOr", "bad query type");
+  PRECONDITION(atom.getQuery()->getNegation() ||
+                   atom.getQuery()->getDescription() == "AtomOr",
+               "bad query type");
 
   std::string res = "";
   if (atom.getQuery()->getNegation()) {
@@ -1186,7 +1236,46 @@ std::string getAtomListText(const Atom &atom) {
 }
 
 // ****************************************************************************
-std::string DrawMol::getAtomSymbol(const RDKit::Atom &atom,
+const std::map<std::string, std::string> &getComplexQuerySymbolMap() {
+  static const std::map<std::string, std::string> complexQuerySymbolMap{
+      {"![H]", "A"},
+      {"![C,H]", "Q"},
+      {"![C]", "QH"},
+      {"[F,Cl,Br,I,At]", "X"},
+      {"[F,Cl,Br,I,At,H]", "XH"},
+      {"![He,B,C,N,O,F,Ne,Si,P,S,Cl,Ar,As,Se,Br,Kr,Te,I,Xe,At,Rn,H]", "M"},
+      {"![He,B,C,N,O,F,Ne,Si,P,S,Cl,Ar,As,Se,Br,Kr,Te,I,Xe,At,Rn]", "MH"},
+  };
+  return complexQuerySymbolMap;
+}
+
+std::set<std::string> createComplexQuerySymbolSet() {
+  std::set<std::string> complexQuerySymbolSet;
+  const auto &querySymbolMap = getComplexQuerySymbolMap();
+  std::transform(
+      querySymbolMap.begin(), querySymbolMap.end(),
+      std::inserter(complexQuerySymbolSet, complexQuerySymbolSet.begin()),
+      [](const auto &pair) { return pair.second; });
+  return complexQuerySymbolSet;
+}
+
+const std::set<std::string> &getComplexQuerySymbolSet() {
+  static const auto complexQuerySymbolSet = createComplexQuerySymbolSet();
+  return complexQuerySymbolSet;
+}
+
+std::string getComplexQueryAtomEquivalent(const std::string &query) {
+  const auto &complexQuerySymbolMap = getComplexQuerySymbolMap();
+  auto it = complexQuerySymbolMap.find(query);
+  return (it == complexQuerySymbolMap.end() ? query : it->second);
+}
+
+bool hasSymbolQueryType(const Atom &atom) {
+  return getComplexQuerySymbolSet().count(atom.getQueryType()) > 0;
+}
+
+// ****************************************************************************
+std::string DrawMol::getAtomSymbol(const Atom &atom,
                                    OrientType orientation) const {
   if (drawOptions_.noAtomLabels) {
     return "";
@@ -1227,8 +1316,14 @@ std::string DrawMol::getAtomSymbol(const RDKit::Atom &atom,
              atom.getDegree() == 1) {
     symbol = "";
     literal_symbol = false;
+  } else if (drawOptions_.useComplexQueryAtomSymbols &&
+             hasSymbolQueryType(atom)) {
+    symbol = atom.getQueryType();
   } else if (isAtomListQuery(&atom)) {
     symbol = getAtomListText(atom);
+    if (drawOptions_.useComplexQueryAtomSymbols) {
+      symbol = getComplexQueryAtomEquivalent(symbol);
+    }
   } else if (isComplexQuery(&atom)) {
     symbol = "?";
   } else if (drawOptions_.atomLabelDeuteriumTritium &&
@@ -1574,7 +1669,7 @@ void DrawMol::makeQueryBond(Bond *bond, double doubleBondOffset) {
   const Point2D &at2_cds = atCds_[endAt->getIdx()];
   auto midp = (at2_cds + at1_cds) / 2.;
   auto tdash = shortDashes;
-  DrawColour queryColour{0.5, 0.5, 0.5};
+  const DrawColour &queryColour = drawOptions_.queryColour;
 
   bool drawGenericQuery = false;
   int at1Idx = begAt->getIdx();
@@ -2311,33 +2406,10 @@ double DrawMol::getNoteStartAngle(const Atom *atom) const {
 }
 
 // ****************************************************************************
-void DrawMol::calcMolNotePosition(const std::vector<Point2D> atCds,
-                                  DrawAnnotation &annot) const {
-  Point2D centroid{0., 0.};
-  double minY = std::numeric_limits<double>::max();
-  double maxX = std::numeric_limits<double>::lowest();
-  for (const auto &pt : atCds) {
-    centroid += pt;
-    maxX = std::max(pt.x, maxX);
-    minY = std::min(pt.y, minY);
-  }
-  centroid /= atCds.size();
-  // because we've inverted the Y coord, we need to use -minY, not +maxY.
-  Point2D vect{maxX, -minY};
-  vect.x -= centroid.x;
-  vect.y += centroid.y;
-  auto loc = centroid + vect * 0.9;
-  loc = centroid;
-  loc.x += vect.x * 0.9;
-  loc.y -= vect.y * 0.9;
-  annot.pos_ = loc;
-}
-
-// ****************************************************************************
 int DrawMol::doesNoteClash(const DrawAnnotation &annot) const {
   // note that this will return a clash if annot is in annotations_.
   // It's intended only to be used when finding where to put the
-  // annotation, so annot should only  be added to annotations_ once
+  // annotation, so annot should only be added to annotations_ once
   // its position has been determined.
   for (auto &rect : annot.rects_) {
     Point2D otrans = rect->trans_;
@@ -2726,7 +2798,22 @@ void DrawMol::calcDoubleBondLines(double offset, const Bond &bond, Point2D &l1s,
       // in a ring, we need to draw the bond inside the ring
       bondInsideRing(bond, offset, l2s, l2f);
     } else {
+      // if there are atom labels at both ends, straddle the atom-atom vector
+      // rather than the normal 1 line on the vector, the other to the side.
+      if (atomLabels_[at1->getIdx()] && atomLabels_[at2->getIdx()]) {
+        doubleBondTerminal(at1, at2, offset, l1s, l1f, l2s, l2f);
+        offset /= 2.0;
+      }
       bondNonRing(bond, offset, l2s, l2f);
+    }
+
+    // Occasionally, as seen in Github6170, a bad geometry about a bond can
+    // result in the bonds being crossed as perpendiculars have become
+    // confused.  Usually this is the result of when a bond to the
+    // double bond is roughly linear with it.  This is a cheap test to see if
+    // this has happened, uncrossing them if necessary.
+    if (!areBondsParallel(l1s, l1f, l2f, l2s)) {
+      std::swap(l1s, l2s);
     }
     if ((Bond::EITHERDOUBLE == bond.getBondDir()) ||
         (Bond::STEREOANY == bond.getStereo())) {
@@ -2825,11 +2912,33 @@ void DrawMol::bondNonRing(const Bond &bond, double offset, Point2D &l2s,
   const Atom *thirdAtom = nullptr;
   const Atom *fourthAtom = nullptr;
 
+  bool begTrunc = !atomLabels_[begAt->getIdx()];
+  bool endTrunc = !atomLabels_[endAt->getIdx()];
+
+  // find a neighbour of at1 that isn't at2 and if possible isn't directly
+  // opposite at1 to at2.
+  auto nonColinearNbor = [&](Atom *at1, Atom *at2) -> const Atom * {
+    const Atom *thirdAtom = nullptr;
+    for (auto i = 1u; i < at1->getDegree(); ++i) {
+      thirdAtom = otherNeighbor(at1, at2, i, *drawMol_);
+      if (thirdAtom && !areBondsParallel(atCds_[at1->getIdx()], atCds_[at2->getIdx()],
+                            atCds_[at1->getIdx()],
+                            atCds_[thirdAtom->getIdx()])) {
+        return thirdAtom;
+      }
+    }
+    if (thirdAtom == nullptr) {
+      // we need something.
+      thirdAtom = otherNeighbor(at1, at2, 1, *drawMol_);
+    }
+    return thirdAtom;
+  };
+
   if (begAt->getDegree() == 2 && endAt->getDegree() == 2) {
     thirdAtom = otherNeighbor(begAt, endAt, 0, *drawMol_);
     fourthAtom = otherNeighbor(endAt, begAt, 0, *drawMol_);
     l2s = doubleBondEnd(thirdAtom->getIdx(), begAt->getIdx(), endAt->getIdx(),
-                        offset, true);
+                        offset, begTrunc);
     bool isTrans =
         areBondsTrans(atCds_[thirdAtom->getIdx()], atCds_[begAt->getIdx()],
                       atCds_[endAt->getIdx()], atCds_[fourthAtom->getIdx()]);
@@ -2840,50 +2949,50 @@ void DrawMol::bondNonRing(const Bond &bond, double offset, Point2D &l2s,
       l2f = atCds_[endAt->getIdx()] + perp * offset;
     } else {
       l2f = doubleBondEnd(fourthAtom->getIdx(), endAt->getIdx(),
-                          begAt->getIdx(), offset, true);
+                          begAt->getIdx(), offset, endTrunc);
     }
   } else if (begAt->getDegree() == 2 && endAt->getDegree() > 2) {
     thirdAtom = otherNeighbor(begAt, endAt, 0, *drawMol_);
     fourthAtom = otherNeighbor(endAt, begAt, 0, *drawMol_);
     l2s = doubleBondEnd(thirdAtom->getIdx(), begAt->getIdx(), endAt->getIdx(),
-                        offset, true);
+                        offset, begTrunc);
     bool isTrans =
         areBondsTrans(atCds_[thirdAtom->getIdx()], atCds_[begAt->getIdx()],
                       atCds_[endAt->getIdx()], atCds_[fourthAtom->getIdx()]);
     if (isTrans) {
-      fourthAtom = otherNeighbor(endAt, begAt, 1, *drawMol_);
+      fourthAtom = nonColinearNbor(endAt, begAt);
     }
     l2f = doubleBondEnd(fourthAtom->getIdx(), endAt->getIdx(), begAt->getIdx(),
-                        offset, true);
+                        offset, endTrunc);
 
   } else if (begAt->getDegree() > 2 && endAt->getDegree() == 2) {
     thirdAtom = otherNeighbor(begAt, endAt, 0, *drawMol_);
     fourthAtom = otherNeighbor(endAt, begAt, 0, *drawMol_);
     l2s = doubleBondEnd(thirdAtom->getIdx(), begAt->getIdx(), endAt->getIdx(),
-                        offset, true);
+                        offset, begTrunc);
     bool isTrans =
         areBondsTrans(atCds_[thirdAtom->getIdx()], atCds_[begAt->getIdx()],
                       atCds_[endAt->getIdx()], atCds_[fourthAtom->getIdx()]);
     if (isTrans) {
-      thirdAtom = otherNeighbor(begAt, endAt, 1, *drawMol_);
+      thirdAtom = nonColinearNbor(begAt, endAt);
       l2s = doubleBondEnd(thirdAtom->getIdx(), begAt->getIdx(), endAt->getIdx(),
-                          offset, true);
+                          offset, endTrunc);
     }
     l2f = doubleBondEnd(fourthAtom->getIdx(), endAt->getIdx(), begAt->getIdx(),
-                        offset, true);
+                        offset, endTrunc);
   } else if (begAt->getDegree() > 2 && endAt->getDegree() > 2) {
     thirdAtom = otherNeighbor(begAt, endAt, 0, *drawMol_);
     l2s = doubleBondEnd(thirdAtom->getIdx(), begAt->getIdx(), endAt->getIdx(),
-                        offset, true);
+                        offset, begTrunc);
     fourthAtom = otherNeighbor(endAt, begAt, 0, *drawMol_);
     bool isTrans =
         areBondsTrans(atCds_[thirdAtom->getIdx()], atCds_[begAt->getIdx()],
                       atCds_[endAt->getIdx()], atCds_[fourthAtom->getIdx()]);
     if (isTrans) {
-      fourthAtom = otherNeighbor(endAt, begAt, 1, *drawMol_);
+      fourthAtom = nonColinearNbor(endAt, begAt);
     }
     l2f = doubleBondEnd(fourthAtom->getIdx(), endAt->getIdx(), begAt->getIdx(),
-                        offset, true);
+                        offset, endTrunc);
   }
 }
 
@@ -2942,6 +3051,14 @@ void DrawMol::doubleBondTerminal(Atom *at1, Atom *at2, double offset,
     l2s = at1_cds + perp * offset;
     l2f = doubleBondEnd(at1->getIdx(), at2->getIdx(), thirdAtom->getIdx(),
                         offset, true);
+    // If at1->at2->at3 is a straight line, l2f may have ended up on the
+    // wrong side of the other bond from l2s because there is no inner
+    // side of the bond.  Do it again with a negative offset if so.
+    if (fabs(l1s.directionVector(l1f).dotProduct(l2s.directionVector(l2f)) <
+             0.9999)) {
+      l2f = doubleBondEnd(at1->getIdx(), at2->getIdx(), thirdAtom->getIdx(),
+                          -offset, true);
+    }
     // if at1 has a label, need to move it so it's centred in between the
     // two lines (Github 5511).
     if (atomLabels_[at1->getIdx()]) {
@@ -2960,21 +3077,34 @@ Point2D DrawMol::doubleBondEnd(unsigned int at1, unsigned int at2,
                                bool trunc) const {
   Point2D v21 = atCds_[at2].directionVector(atCds_[at1]);
   Point2D v23 = atCds_[at2].directionVector(atCds_[at3]);
-  Point2D bis = v21 + v23;
-  bis.normalize();
   Point2D v23perp(-v23.y, v23.x);
   v23perp.normalize();
+
+  Point2D bis = v21 + v23;
+  if (bis.lengthSq() < 1.0e-6) {
+    // if the bonds are colinear, bis comes out as 0, and thus normalizes
+    // to NaN which gives a very ugly result (Github #6027).  It's safe
+    // to use v23perp in this case, so long as is on the right side of the
+    // bond, which will be checked on return.
+    return (atCds_[at2] - v23perp * offset);
+  }
+
+  bis.normalize();
   if (v23perp.dotProduct(bis) < 0.0) {
     v23perp = v23perp * -1.0;
   }
   Point2D ip;
   // if there's an atom label, we don't need to step the bond end back
   // because both ends are shortened to accommodate the letters.
+  // likewise if the two lines don't intersect, it's already stepped
+  // back enough (github 6025).
+  bool ipAlreadySet = false;
   if (trunc) {
-    doLinesIntersect(atCds_[at2], atCds_[at2] + bis,
-                     atCds_[at2] + v23perp * offset,
-                     atCds_[at3] + v23perp * offset, &ip);
-  } else {
+    ipAlreadySet = doLinesIntersect(atCds_[at2], atCds_[at2] + bis,
+                                    atCds_[at2] + v23perp * offset,
+                                    atCds_[at3] + v23perp * offset, &ip);
+  }
+  if (!ipAlreadySet) {
     ip = atCds_[at2] + v23perp * offset;
   }
   return ip;
@@ -3567,6 +3697,14 @@ bool areBondsTrans(const Point2D &at1, const Point2D &at2, const Point2D &at3,
   Point2D v21 = at1 - at2;
   Point2D v34 = at4 - at3;
   return (v21.dotProduct(v34) < 0.0);
+}
+
+// ****************************************************************************
+bool areBondsParallel(const Point2D &at1, const Point2D &at2,
+                      const Point2D &at3, const Point2D &at4, double tol) {
+  Point2D v21 = at1.directionVector(at2);
+  Point2D v34 = at4.directionVector(at3);
+  return (fabs(1.0 - fabs(v21.dotProduct(v34))) < tol);
 }
 
 // ****************************************************************************

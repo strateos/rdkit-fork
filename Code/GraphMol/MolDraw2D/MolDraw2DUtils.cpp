@@ -90,9 +90,11 @@ void prepareAndDrawMolecule(MolDraw2D &drawer, const ROMol &mol,
                             const std::map<int, DrawColour> *highlight_atom_map,
                             const std::map<int, DrawColour> *highlight_bond_map,
                             const std::map<int, double> *highlight_radii,
-                            int confId, bool kekulize) {
+                            int confId, bool kekulize, bool addChiralHs,
+                            bool wedgeBonds, bool forceCoords, bool wavyBonds) {
   RWMol cpy(mol);
-  prepareMolForDrawing(cpy, kekulize);
+  prepareMolForDrawing(cpy, kekulize, addChiralHs, wedgeBonds, forceCoords,
+                       wavyBonds);
   // having done the prepare, we don't want to do it again in drawMolecule.
   bool old_prep_mol = drawer.drawOptions().prepareMolsBeforeDrawing;
   drawer.drawOptions().prepareMolsBeforeDrawing = false;
@@ -213,9 +215,11 @@ void updateMolDrawOptionsFromJSON(MolDrawOptions &opts,
   PT_OPT_GET(useMolBlockWedging);
   PT_OPT_GET(scalingFactor);
   PT_OPT_GET(drawMolsSameScale);
+  PT_OPT_GET(useComplexQueryAtomSymbols);
 
   get_colour_option(&pt, "highlightColour", opts.highlightColour);
   get_colour_option(&pt, "backgroundColour", opts.backgroundColour);
+  get_colour_option(&pt, "queryColour", opts.queryColour);
   get_colour_option(&pt, "legendColour", opts.legendColour);
   get_colour_option(&pt, "symbolColour", opts.symbolColour);
   get_colour_option(&pt, "annotationColour", opts.annotationColour);
@@ -435,11 +439,23 @@ void drawMolACS1996(MolDraw2D &drawer, const ROMol &mol,
         << " and that may not look great with a pre-determined size."
         << std::endl;
   }
-  double meanBondLen = MolDraw2DUtils::meanBondLength(mol, confId);
-  setACS1996Options(drawer.drawOptions(), meanBondLen);
-  drawer.drawMolecule(mol, legend, highlight_atoms, highlight_bonds,
-                      highlight_atom_map, highlight_bond_map, highlight_radii,
-                      confId);
+  auto setAndGo = [&](const ROMol &theMol) -> void {
+    auto meanBondLen = MolDraw2DUtils::meanBondLength(theMol, confId);
+    setACS1996Options(drawer.drawOptions(), meanBondLen);
+    drawer.drawMolecule(theMol, legend, highlight_atoms, highlight_bonds,
+                        highlight_atom_map, highlight_bond_map, highlight_radii,
+                        confId);
+  };
+  if (!mol.getNumConformers()) {
+    // compute 2D coordinates in a standard orientation.  This needs to be
+    // done on a copy because mol is const.
+    const bool canonOrient = true;
+    RWMol cpy(mol);
+    RDDepict::compute2DCoords(cpy, nullptr, canonOrient);
+    setAndGo(cpy);
+  } else {
+    setAndGo(mol);
+  }
 }
 
 // ****************************************************************************

@@ -47,8 +47,8 @@ class RDKIT_GRAPHMOL_EXPORT RWMol : public ROMol {
   RWMol(const RWMol &other) : ROMol(other) {}
   RWMol &operator=(const RWMol &);
   RWMol(RWMol &&other) noexcept : ROMol(std::move(other)) {}
-  RWMol &operator=(RWMol &&other) noexcept { 
-    ROMol::operator=(std::move(other)); 
+  RWMol &operator=(RWMol &&other) noexcept {
+    ROMol::operator=(std::move(other));
     return *this;
   }
   ~RWMol() override;

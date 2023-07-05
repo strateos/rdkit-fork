@@ -102,7 +102,8 @@ Mol *deconstructROMol(CROMol data);
 CROMol parseMolBlob(char *data, int len);
 char *makeMolBlob(CROMol data, int *len);
 /* sanitize argument is only used if asSmarts and asQuery are false */
-CROMol parseMolText(char *data, bool asSmarts, bool warnOnFail, bool asQuery, bool sanitize);
+CROMol parseMolText(char *data, bool asSmarts, bool warnOnFail, bool asQuery,
+                    bool sanitize);
 CROMol parseMolCTAB(char *data, bool keepConformer, bool warnOnFail,
                     bool asQuery);
 char *makeMolText(CROMol data, int *len, bool asSmarts, bool cxSmiles);
@@ -118,7 +119,7 @@ bool isValidMolBlob(char *data, int len);
 
 int molcmp(CROMol i, CROMol a);
 
-int MolSubstruct(CROMol i, CROMol a, bool useChirality);
+int MolSubstruct(CROMol i, CROMol a, bool useChirality, bool useMatchers);
 int MolSubstructCount(CROMol i, CROMol a, bool uniquify, bool useChirality);
 
 bytea *makeMolSignature(CROMol data);

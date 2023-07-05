@@ -60,6 +60,7 @@ option(RDK_INSTALL_DEV_COMPONENT "install libraries and headers" ON)
 option(RDK_USE_BOOST_REGEX "use boost::regex instead of std::regex (needed for systems with g++-4.8)" OFF)
 option(RDK_USE_BOOST_IOSTREAMS "use boost::iostreams" ON)
 option(RDK_BUILD_MINIMAL_LIB "build the minimal RDKit wrapper (for the JS bindings)" OFF)
+option(RDK_MINIMAL_LIB_SUPPORT_LEGACY_BROWSERS "build the minimal RDKit JS wrapper such that it supports legacy browsers" OFF)
 option(RDK_BUILD_CFFI_LIB "build the CFFI wrapper (for use in other programming languges)" OFF)
 option(RDK_BUILD_FUZZ_TARGETS "build the fuzz targets" OFF)
 
@@ -67,8 +68,8 @@ set(RDK_BOOST_VERSION "1.58.0")
 
 if(NOT MSVC)
   if(RDK_OPTIMIZE_POPCNT)
-    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-      message("RDK_OPTIMIZE_POPCNT is not available on aarch64")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)")
+      message("RDK_OPTIMIZE_POPCNT is not available on aarch64 or arm64")
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ppc64|powerpc64)")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mpopcntd")
     else()
@@ -129,8 +130,8 @@ set(RDK_PYTHON_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/rdkit")
 # Config variables:
 set(RDKit_Year "2023")
 set(RDKit_Month "03")
-set(RDKit_Revision "1")
-set(RDKit_RevisionModifier "pre")
+set(RDKit_Revision "2")
+set(RDKit_RevisionModifier "")
 set(RDKit_ABI "1")
 
 # we need an integer version of the month later, so remove the zero padding
@@ -278,7 +279,7 @@ if(RDK_BUILD_PYTHON_WRAPPERS)
   # determine linkage of python
   execute_process(
       COMMAND
-      ${PYTHON_EXECUTABLE} -c "from distutils import sysconfig; print(sysconfig.get_config_var('Py_ENABLE_SHARED'))"
+      ${PYTHON_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('Py_ENABLE_SHARED'))"
       OUTPUT_VARIABLE Py_ENABLE_SHARED
       OUTPUT_STRIP_TRAILING_WHITESPACE
   )
@@ -320,10 +321,11 @@ if(RDK_BUILD_PYTHON_WRAPPERS)
   else(RDK_INSTALL_INTREE)
     if (NOT PYTHON_INSTDIR)
       # Determine correct installation directory for Python bindings
-      # From http://plplot.svn.sourceforge.net/viewvc/plplot/trunk/cmake/modules/python.cmake?revision=11014
       execute_process(
         COMMAND
-        ${PYTHON_EXECUTABLE} -c "from __future__ import print_function; from distutils import sysconfig; print(sysconfig.get_python_lib(1,0,prefix='${CMAKE_INSTALL_PREFIX}'))"
+        ${PYTHON_EXECUTABLE} -c "import sys; import sysconfig; \
+          schema = 'nt' if sys.platform == 'win32' else 'posix_prefix'; \
+          print(sysconfig.get_path('platlib', schema, vars={'platbase': '${CMAKE_INSTALL_PREFIX}'}))"
         OUTPUT_VARIABLE PYTHON_INSTDIR
         OUTPUT_STRIP_TRAILING_WHITESPACE
       )
@@ -360,7 +362,7 @@ if(RDK_BUILD_PYTHON_WRAPPERS)
     # We strip off the first word though (which will be the compiler name).
     execute_process(
         COMMAND
-        ${PYTHON_EXECUTABLE} -c "from distutils import sysconfig; print(sysconfig.get_config_var('LDSHARED').lstrip().split(' ', 1)[1])"
+        ${PYTHON_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('LDSHARED').lstrip().split(' ', 1)[1])"
         OUTPUT_VARIABLE PYTHON_LDSHARED
         OUTPUT_STRIP_TRAILING_WHITESPACE
      )
